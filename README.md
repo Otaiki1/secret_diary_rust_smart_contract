@@ -1,4 +1,4 @@
-# icp_rust_message_board_contract
+# icp_secret_diary_contract
 
 **Project Overview:**
 This project is like a secret diary app where you can write down and protect your personal messages with a secret key. It allows you to add new secret messages and later view them by providing the correct secret key.
