@@ -1,5 +1,22 @@
 # icp_rust_message_board_contract
 
+**Project Overview:**
+This project is like a secret diary app where you can write down and protect your personal messages with a secret key. It allows you to add new secret messages and later view them by providing the correct secret key.
+
+**Technical Details:**
+
+1. **Data Storage:** Behind the scenes, the app stores your secret messages securely using advanced data structures. These structures ensure that your data is safe and can be retrieved quickly.
+
+2. **Message Encryption:** When you add a message, it gets encrypted. Encryption is like turning your message into a secret code that only the right key can unlock. This makes sure that your messages are kept safe from prying eyes.
+
+3. **Secret Key:** You need a secret key to view your messages. Think of this key as a special password that allows you to decode and read your secret messages. Without the key, no one can access your messages.
+
+4. **Viewing Messages:** To view a message, you provide the secret key. The app checks if the key matches the one used to encrypt the message. If it does, the app decodes the message and shows it to you. If the key is wrong, you won't be able to read the message, keeping it confidential.
+
+So, in simple terms, this project lets you keep your personal messages private by encrypting them with a secret key, ensuring that only you can read them. It's like having a digital diary with a lock and key to protect your thoughts and memories.
+
+
+
 ### Requirements
 * rustc 1.64 or higher
 ```bash
