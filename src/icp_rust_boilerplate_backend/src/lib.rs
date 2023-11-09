@@ -10,19 +10,15 @@ type Memory = VirtualMemory<DefaultMemoryImpl>;
 type IdCell = Cell<u64, Memory>;
 
 #[derive(candid::CandidType, Clone, Serialize, Deserialize, Default)]
-struct ReferralReward {
+struct SecretMessage {
     id: u64,
-    title: String,
-    body: String,
-    attachment_url: String,
+    encrypted_message: String,
     created_at: u64,
     updated_at: Option<u64>,
-    user_name: String,          // New field: User's name
-    referral_code: String,      // New field: Referral code
-    reward_points: u32,         // New field: Reward points
+    secret_key: String,
 }
 
-impl Storable for ReferralReward {
+impl Storable for SecretMessage {
     fn to_bytes(&self) -> std::borrow::Cow<[u8]> {
         Cow::Owned(Encode!(self).unwrap())
     }
@@ -32,8 +28,8 @@ impl Storable for ReferralReward {
     }
 }
 
-impl BoundedStorable for ReferralReward {
-    const MAX_SIZE: u32 = 1024;  // You may need to adjust this value based on the new fields.
+impl BoundedStorable for SecretMessage {
+    const MAX_SIZE: u32 = 1024;
     const IS_FIXED_SIZE: bool = false;
 }
 
@@ -47,65 +43,70 @@ thread_local! {
             .expect("Cannot create a counter")
     );
 
-    static STORAGE: RefCell<StableBTreeMap<u64, ReferralReward, Memory>> =
+    static STORAGE: RefCell<StableBTreeMap<u64, SecretMessage, Memory>> =
         RefCell::new(StableBTreeMap::init(
             MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(1)))
     ));
 }
 
 #[derive(candid::CandidType, Serialize, Deserialize, Default)]
-struct ReferralRewardPayload {
-    title: String,
-    body: String,
-    attachment_url: String,
+struct SecretMessagePayload {
+    encrypted_message: String,
+    secret_key: String,
 }
 
 #[ic_cdk::query]
-fn get_referral_reward(id: u64) -> Result<ReferralReward, Error> {
-    match _get_referral_reward(&id) {
-        Some(referral_reward) => Ok(referral_reward),
+fn get_message(id: u64, secret_key: String) -> Result<String, Error> {
+    match _get_message(&id) {
+        Some(message) => {
+            if message.secret_key == secret_key {
+                Ok(message.encrypted_message)
+            } else {
+                Err(Error::Unauthorized {
+                    msg: "Unauthorized: Invalid secret key.".to_string(),
+                })
+            }
+        }
         None => Err(Error::NotFound {
-            msg: format!("Referral reward with id={} not found", id),
+            msg: format!("A message with id={} not found", id),
         }),
     }
 }
 
 #[ic_cdk::update]
-fn add_referral_reward(referral_reward: ReferralRewardPayload) -> Option<ReferralReward> {
+fn add_message(message: SecretMessagePayload) -> Option<SecretMessage> {
     let id = ID_COUNTER
         .with(|counter| {
             let current_value = *counter.borrow().get();
             counter.borrow_mut().set(current_value + 1)
         })
         .expect("cannot increment id counter");
-    let referral_reward = ReferralReward {
+    let message = SecretMessage {
         id,
-        title: referral_reward.title,
-        body: referral_reward.body,
-        attachment_url: referral_reward.attachment_url,
+        encrypted_message: message.encrypted_message,
         created_at: time(),
         updated_at: None,
-        user_name: "John Doe".to_string(),  // Set the user's name
-        referral_code: "ABC123".to_string(), // Set the referral code
-        reward_points: 0,                  // Initialize reward points
+        secret_key: message.secret_key,
     };
-    do_insert(&referral_reward);
-    Some(referral_reward)
+    do_insert(&message);
+    Some(message)
 }
 
-// Other functions remain unchanged
+// Helper method to perform insert.
+fn do_insert(message: &SecretMessage) {
+    STORAGE.with(|service| service.borrow_mut().insert(message.id, message.clone()));
+}
 
 #[derive(candid::CandidType, Deserialize, Serialize)]
 enum Error {
     NotFound { msg: String },
+    Unauthorized { msg: String },
 }
 
-fn do_insert(referral_reward: &ReferralReward) {
-    STORAGE.with(|service| service.borrow_mut().insert(referral_reward.id, referral_reward.clone()));
-}
-
-fn _get_referral_reward(id: &u64) -> Option<ReferralReward> {
+// A helper method to get a message by id. Used in get_message.
+fn _get_message(id: &u64) -> Option<SecretMessage> {
     STORAGE.with(|service| service.borrow().get(id))
 }
 
+// Export the Candid interface.
 ic_cdk::export_candid!();
