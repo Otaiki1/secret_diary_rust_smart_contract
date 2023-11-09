@@ -1,3 +1,22 @@
+type Error = variant { NotFound : record { msg : text } };
+type ReferralReward = record {
+  id : nat64;
+  title : text;
+  updated_at : opt nat64;
+  user_name : text;
+  body : text;
+  created_at : nat64;
+  reward_points : nat32;
+  referral_code : text;
+  attachment_url : text;
+};
+type ReferralRewardPayload = record {
+  title : text;
+  body : text;
+  attachment_url : text;
+};
+type Result = variant { Ok : ReferralReward; Err : Error };
 service : {
-    "greet": (text) -> (text) query;
+  add_referral_reward : (ReferralRewardPayload) -> (opt ReferralReward);
+  get_referral_reward : (nat64) -> (Result) query;
 }
