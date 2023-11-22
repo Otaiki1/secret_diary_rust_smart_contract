@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate serde;
 use candid::{Decode, Encode};
-use ic_cdk::{api::time, IDL};
+use ic_cdk::api::time;
 use ic_stable_structures::memory_manager::{MemoryId, MemoryManager, VirtualMemory};
 use ic_stable_structures::{BoundedStorable, Cell, DefaultMemoryImpl, StableBTreeMap, Storable};
 use std::{borrow::Cow, cell::RefCell};
@@ -55,19 +55,10 @@ struct SecretMessagePayload {
     secret_key: String,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-struct User {
-    roles: Vec<String>,
-}
+
 
 #[ic_cdk::query]
-fn get_message(id: u64, secret_key: String, user: User) -> Result<String, Error> {
-    // Access control: Check if the user has the necessary role
-    if !user.roles.contains(&"admin".to_string()) {
-        return Err(Error::Unauthorized {
-            msg: "Unauthorized: Insufficient privileges.".to_string(),
-        });
-    }
+fn get_message(id: u64, secret_key: String) -> Result<String, Error> {
 
     let message = _get_message(&id).ok_or_else(|| Error::NotFound {
         msg: format!("A message with id={} not found", id),
@@ -84,14 +75,8 @@ fn get_message(id: u64, secret_key: String, user: User) -> Result<String, Error>
 }
 
 #[ic_cdk::update]
-fn add_message(message: SecretMessagePayload, user: User) -> Result<SecretMessage, Error> {
-    // Access control: Check if the user has the necessary role
-    if !user.roles.contains(&"admin".to_string()) {
-        return Err(Error::Unauthorized {
-            msg: "Unauthorized: Insufficient privileges.".to_string(),
-        });
-    }
-
+fn add_message(message: SecretMessagePayload) -> Result<SecretMessage, Error> {
+    
     // Validate input
     if message.encrypted_message.is_empty() || message.secret_key.is_empty() {
         return Err(Error::InvalidInput {
@@ -99,6 +84,10 @@ fn add_message(message: SecretMessagePayload, user: User) -> Result<SecretMessag
         });
     }
 
+    let check_password = _validate_secret_key(&message.secret_key);
+    if check_password.is_err() {
+        return Err(check_password.err().unwrap());
+    }
     let id = ID_COUNTER
         .with(|counter| {
             let current_value = *counter.borrow().get();
@@ -118,6 +107,29 @@ fn add_message(message: SecretMessagePayload, user: User) -> Result<SecretMessag
     Ok(secret_message)
 }
 
+// helper function to check whether the secret key meets the following conditions:
+// 1. No whitespaces
+// 2. At least one uppercase character
+// 3. At least one lowercase character
+// 4. At least one number
+fn _validate_secret_key(password: &str) -> Result<(), Error> {
+    let mut has_whitespace = false;
+    let mut has_upper = false;
+    let mut has_lower = false;
+    let mut has_digit = false;
+
+    for c in password.chars() {
+        has_whitespace |= c.is_whitespace();
+        has_lower |= c.is_lowercase();
+        has_upper |= c.is_uppercase();
+        has_digit |= c.is_digit(10);
+    }
+    if !has_whitespace && has_upper && has_lower && has_digit && password.len() >= 8 {
+        Ok(())
+    } else {
+        return Err(Error::InvalidInput{msg: "Password validation failed".to_string()});
+    }
+}
 // Helper method to perform insert.
 fn do_insert(message: &SecretMessage) {
     STORAGE.with(|service| service.borrow_mut().insert(message.id, message.clone()));
