@@ -1,8 +1,11 @@
 type Error = variant {
+  InvalidInput : record { msg : text };
   NotFound : record { msg : text };
   Unauthorized : record { msg : text };
+  CounterIncrementFailed;
 };
-type Result = variant { Ok : text; Err : Error };
+type Result = variant { Ok : SecretMessage; Err : Error };
+type Result_1 = variant { Ok : text; Err : Error };
 type SecretMessage = record {
   id : nat64;
   updated_at : opt nat64;
@@ -15,6 +18,6 @@ type SecretMessagePayload = record {
   encrypted_message : text;
 };
 service : {
-  add_message : (SecretMessagePayload) -> (opt SecretMessage);
-  get_message : (nat64, text) -> (Result) query;
+  add_message : (SecretMessagePayload) -> (Result);
+  get_message : (nat64, text) -> (Result_1) query;
 }
